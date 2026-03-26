@@ -1,0 +1,95 @@
+{
+  "name": "wf-save-data-public",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "ID_SPREADSHEET_ANDA",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Tanggal Nota": "={{ $json.callback_query.message.text.match(/Tanggal: (.+)/)[1] }}",
+            "Supplier": "={{ $json.callback_query.message.text.match(/Supplier: (.+)/)[1] }}",
+            "Deadline Pembayaran": "={{(()=>{\n  let purchaseDate = $json.callback_query.message.text.match(/Tanggal: (.+)/)[1]\n  let tempDate = new Date(purchaseDate);\n  const originalDay = tempDate.getDate();\n  tempDate.setMonth(tempDate.getMonth() + 1);\n  if (tempDate.getDate() !== originalDay) { tempDate.setDate(0); }\n  const mm = String(tempDate.getMonth() + 1).padStart(2, '0');\n  const dd = String(tempDate.getDate()).padStart(2, '0');\n  const yy = String(tempDate.getFullYear()).slice(-2);\n  return `${mm}/${dd}/${yy}`\n})()}}",
+            "Jumlah": "={{ $json.callback_query.message.text.match(/Jumlah: (.+)/)[1] }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1200, -1152],
+      "name": "Belanja RS MMH"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            { "conditions": { "conditions": [{ "leftValue": "={{ $node[\"Start\"].json[\"callback_query\"][\"message\"][\"message_thread_id\"] }}", "rightValue": 7, "operator": { "type": "number", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "SPPG PESIBAR" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $node[\"Start\"].json[\"callback_query\"][\"message\"][\"message_thread_id\"] }}", "rightValue": 2, "operator": { "type": "number", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "RSIA MH" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [912, -1328],
+      "name": "Switch : receipt by project"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-368, -512],
+      "name": "Start"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.callback_query.message.text }}",
+        "options": {
+          "systemMessage": "=Kamu adalah parser text belanja yang mengubah input menjadi JSON.\n{{ $json.system_message }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [48, -512],
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawString = $input.first().json.output.replace(/```json|```/g, \"\").trim();\nreturn JSON.parse(rawString);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, -512],
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Start\"].json[\"callback_query\"][\"message\"][\"chat\"][\"id\"] }}",
+        "text": "Data tersimpan!",
+        "additionalFields": {
+          "reply_to_message_id": "={{ $node[\"Start\"].json[\"callback_query\"][\"message\"][\"message_id\"] }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2752, -240],
+      "name": "msg : \"data tersimpan\""
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] },
+    "AI Agent": { "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]] }
+  }
+}

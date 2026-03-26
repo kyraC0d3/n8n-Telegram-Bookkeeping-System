@@ -1,0 +1,77 @@
+{
+  "name": "Pembukuan-Public",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": { "download": true }
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [0, -144],
+      "name": "Telegram Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function forwarder(command) {\n  const msg = $input.item.json.message;\n  const chtId = msg?.chat.id;\n  const msgId = msg?.message_id;\n  const photoSelf = msg?.photo?.[2];\n  const textMsg = msg?.text || \"\";\n  // Logic parsing command...\n  return { status: \"ok\", chtId, msgId, command, prompt: textMsg };\n}\n// Dispatcher logic...\nreturn forwarder(\"/belanja\");"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 96],
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "workflowId": "ID_WORKFLOW_SAVE_DATA",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "callback_query_message_reply_to_message_text": "={{ $json.callback_query.message.reply_to_message?.text }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [496, -592],
+      "name": "Call wf-save belanja"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.0-flash-exp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [784, 320],
+      "name": "OpenRouter Chat Model"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"] }}",
+        "text": "={{ $json.output }}\n\nSimpan data?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  { "text": "Simpan", "additionalFields": { "callback_data": "save" } },
+                  { "text": "Batal", "additionalFields": { "callback_data": "cancel" } }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1952, -64],
+      "name": "msg : confirm receipt"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {}
+}
